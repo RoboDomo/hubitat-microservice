@@ -20,28 +20,32 @@ const getDevices = async () => {
 
 class Hubitat extends HostBase {
   constructor() {
-    const host = process.env.MQTT_HOST || "mqtt",
-      topic = process.env.MQTT_TOPIC || "hubitat";
+    try {
+      const host = process.env.MQTT_HOST || "mqtt",
+        topic = process.env.MQTT_TOPIC || "hubitat";
 
-    debug("host", host, "topic", topic);
-    super(host, topic, true);
-    this.token = process.env.HUBITAT_TOKEN;
-    this.client.on("connect", () => {
-      this.client.subscribe("hubitat/+/set/#");
-      this.client.on("message", async (topic, message) => {
-        message = message.toString();
-        const parts = topic.split("/");
-        if (parts[2] === "set") {
-          await this.command(parts[1], parts[3], message);
-        }
+      debug("host", host, "topic", topic);
+      super(host, topic, true);
+      this.token = process.env.HUBITAT_TOKEN;
+      this.client.on("connect", () => {
+        this.client.subscribe("hubitat/+/set/#");
+        this.client.on("message", async (topic, message) => {
+          message = message.toString();
+          const parts = topic.split("/");
+          if (parts[2] === "set") {
+            await this.command(parts[1], parts[3], message);
+          }
+        });
       });
-    });
 
-    // override publish() in HostBase
-    this.publish = (key, value) => {
-      const topic = `hubitat/${key}`;
-      this.client.publish(topic, JSON.stringify(value), { retain: true });
-    };
+      // override publish() in HostBase
+      this.publish = (key, value) => {
+        const topic = `hubitat/${key}`;
+        this.client.publish(topic, JSON.stringify(value), { retain: true });
+      };
+    } catch (e) {
+      console.log("Error: ", e.message, e.stack);
+    }
   }
 
   async run() {
