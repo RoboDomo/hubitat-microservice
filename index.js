@@ -7,11 +7,15 @@ const debug = require("debug")("hubitat"),
 const POLL_TIME = 2000;
 
 const getDevices = async () => {
-  const url = `http://${
-    process.env.HUBITAT_HUB
-  }/apps/api/4/devices/all?access_token=${process.env.HUBITAT_TOKEN}`;
-  const json = await superagent.get(url);
-  return JSON.parse(json.text);
+  try {
+    const url = `http://${
+      process.env.HUBITAT_HUB
+    }/apps/api/4/devices/all?access_token=${process.env.HUBITAT_TOKEN}`;
+    const json = await superagent.get(url);
+    return JSON.parse(json.text);
+  } catch (e) {
+    console.log("getDevices exception", e);
+  }
 };
 
 class Hubitat extends HostBase {
@@ -41,7 +45,9 @@ class Hubitat extends HostBase {
   }
 
   async run() {
+    console.log("run");
     const devices = await getDevices();
+    console.log("devices", devices);
     this.devices = {};
     for (const device of devices) {
       this.devices[device.label] = device;
@@ -55,6 +61,7 @@ class Hubitat extends HostBase {
     });
 
     client.on("connect", connection => {
+      console.log("connected");
       connection.on("error", err => {
         console.log("Connection Error:", err.toString());
       });
@@ -91,9 +98,11 @@ class Hubitat extends HostBase {
       });
     });
 
+    console.log("connecting");
     client.connect("ws://hubitat/eventsocket");
     while (true) {
       const status = await getDevices();
+      console.log("polled");
       for (const device of status) {
         const newState = {};
         for (const attribute of Object.keys(device.attributes)) {
@@ -169,4 +178,5 @@ const main = async () => {
   await hub.run();
 };
 
+console.log("STARTING...");
 main();
