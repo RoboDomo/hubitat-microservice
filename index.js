@@ -6,25 +6,26 @@ const debug = require("debug")("hubitat"),
 
 const POLL_TIME = 2000;
 
+const DEVICES_URL = `http://${
+  process.env.HUBITAT_HUB
+}/apps/api/4/devices/all?access_token=${process.env.HUBITAT_TOKEN}`;
+
 const getDevices = async () => {
   try {
-    const url = `http://${
-      process.env.HUBITAT_HUB
-    }/apps/api/4/devices/all?access_token=${process.env.HUBITAT_TOKEN}`;
-    const json = await superagent.get(url);
+    const json = await superagent.get(DEVICES_URL);
     return JSON.parse(json.text);
   } catch (e) {
-    console.log("getDevices exception", e);
+    console.log("getDevices exception", e.message, e.stack);
   }
 };
 
 class Hubitat extends HostBase {
   constructor() {
-    try {
-      const host = process.env.MQTT_HOST || "mqtt",
-        topic = process.env.MQTT_TOPIC || "hubitat";
+    const host = process.env.MQTT_HOST || "mqtt",
+      topic = process.env.MQTT_TOPIC || "hubitat";
 
-      debug("host", host, "topic", topic);
+    debug("host", host, "topic", topic, "url", DEVICES_URL);
+    try {
       super(host, topic, true);
       this.token = process.env.HUBITAT_TOKEN;
       this.client.on("connect", () => {
@@ -38,9 +39,14 @@ class Hubitat extends HostBase {
         });
       });
 
+      this.client.on("error", e => {
+        console.log("client error", e);
+      });
+
       // override publish() in HostBase
       this.publish = (key, value) => {
         const topic = `hubitat/${key}`;
+        debug("publish", topic, JSON.stringify(value));
         this.client.publish(topic, JSON.stringify(value), { retain: true });
       };
     } catch (e) {
@@ -49,9 +55,7 @@ class Hubitat extends HostBase {
   }
 
   async run() {
-    console.log("run");
     const devices = await getDevices();
-    console.log("devices", devices);
     this.devices = {};
     for (const device of devices) {
       this.devices[device.label] = device;
@@ -64,8 +68,10 @@ class Hubitat extends HostBase {
       console.log("Connect Error:", err.toString());
     });
 
+    client.on("error", e => {
+      console.log("ws client error", e);
+    });
     client.on("connect", connection => {
-      console.log("connected");
       connection.on("error", err => {
         console.log("Connection Error:", err.toString());
       });
@@ -102,11 +108,9 @@ class Hubitat extends HostBase {
       });
     });
 
-    console.log("connecting");
     client.connect("ws://hubitat/eventsocket");
     while (true) {
       const status = await getDevices();
-      console.log("polled");
       for (const device of status) {
         const newState = {};
         for (const attribute of Object.keys(device.attributes)) {
@@ -182,5 +186,4 @@ const main = async () => {
   await hub.run();
 };
 
-console.log("STARTING...");
 main();
