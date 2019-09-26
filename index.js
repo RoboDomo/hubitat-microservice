@@ -25,8 +25,9 @@ class Hubitat extends HostBase {
       topic = process.env.MQTT_TOPIC || "hubitat";
 
     debug("host", host, "topic", topic, "url", DEVICES_URL);
+    super(host, topic, true);
+
     try {
-      super(host, topic, true);
       this.token = process.env.HUBITAT_TOKEN;
       this.client.on("connect", () => {
         this.client.subscribe("hubitat/+/set/#");
@@ -46,7 +47,12 @@ class Hubitat extends HostBase {
       // override publish() in HostBase
       this.publish = (key, value) => {
         const topic = `hubitat/${key}`;
-        debug("publish", topic, JSON.stringify(value));
+        debug(
+          new Date().toLocaleTimeString(),
+          "publish",
+          topic,
+          JSON.stringify(value)
+        );
         this.client.publish(topic, JSON.stringify(value), { retain: true });
       };
     } catch (e) {
@@ -82,43 +88,113 @@ class Hubitat extends HostBase {
 
       connection.on("message", message => {
         try {
-          const event = JSON.parse(message.utf8Data);
-          debug("event", event);
-          const newState = {},
-            deviceName = event.displayName,
-            device = this.devices[deviceName],
-            isButton = ~device.type.toLowerCase().indexOf("button");
+          const event = JSON.parse(message.utf8Data),
+            newState = {};
+
+          switch (event.source) {
+            case "DEVICE":
+              switch (event.name) {
+                case "temperature":
+                  debug(
+                    new Date().toLocaleTimeString(),
+                    "event temperature",
+                    event.displayName,
+                    event.value
+                  );
+                  break;
+                case "battery":
+                  debug(
+                    new Date().toLocaleTimeString(),
+                    "event battery",
+                    event.displayName,
+                    event.value
+                  );
+                  break;
+                default:
+                  debug(new Date().toLocaleTimeString(), "event", event);
+                  break;
+              }
+              break;
+            case "LOCATION":
+              debug(
+                new Date().toLocaleTimeString(),
+                "event location",
+                event.displayName,
+                event.name,
+                event.value
+              );
+              break;
+            default:
+              debug(new Date().toLocaleTimeString(), "event", event);
+              break;
+          }
 
           newState[`${event.displayName}/status/${event.name}`] = isNaN(
             event.value
           )
             ? event.value
             : Number(event.value);
+
           this.state = newState;
 
-          if (isButton && device.capabilities.indexOf("Release") === -1) {
-            setTimeout(() => {
-              newState[`${event.displayName}/status/${event.name}`] = 0;
-              this.state = newState;
-            }, 1000);
+          if (event.source === "DEVICE") {
+            const deviceName = event.displayName,
+              device = this.devices[deviceName],
+              isButton = ~device.type.toLowerCase().indexOf("button");
+
+            if (
+              isButton &&
+              event.name !== "temperature" &&
+              event.name !== "battery" &&
+              device.capabilities.indexOf("Release") === -1
+            ) {
+              setTimeout(() => {
+                newState[`${event.displayName}/status/${event.name}`] = 0;
+                this.state = newState;
+              }, 1000);
+            }
           }
         } catch (e) {
           //
+          console.log(new Date().toLocateTimeString(), "exception", e.message);
         }
       });
     });
 
+    // POLL
     client.connect("ws://hubitat/eventsocket");
     while (true) {
       const status = await getDevices();
       for (const device of status) {
         const newState = {};
         for (const attribute of Object.keys(device.attributes)) {
-          if (attribute === "battery" || attribute === "temperature") {
-            const value = device.attributes[attribute];
-            newState[`${device.label}/status/${attribute}`] = isNaN(value)
-              ? value
-              : Number(value);
+          if (attribute === "dataType" || attribute === "values") {
+            continue;
+          }
+          const key = `${device.label}/status/${attribute}`,
+            value = device.attributes[attribute];
+
+          if (
+            attribute === "battery" ||
+            attribute === "temperature" ||
+            attribute === "presence"
+          ) {
+            newState[key] = isNaN(value) ? value : Number(value);
+            if (attribute === "presence") {
+              debug(
+                new Date().toLocaleTimeString(),
+                device.label,
+                device.attributes.presence
+              );
+            }
+            if (!this.state || newState[key] !== this.state[key]) {
+              debug(
+                new Date().toLocaleTimeString(),
+                device.label,
+                attribute,
+                value
+              );
+            }
           }
         }
         this.state = newState;
@@ -130,8 +206,13 @@ class Hubitat extends HostBase {
   async queueRunner() {
     const url = this.queue.shift();
     if (url) {
-      console.log("GET ", url);
-      await superagent.get(url);
+      try {
+        console.log("GET ", url);
+        await superagent.get(url);
+      } catch (e) {
+        //
+        this.queue.unshift(url);
+      }
     }
   }
 
