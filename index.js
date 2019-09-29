@@ -65,8 +65,13 @@ class Hubitat extends HostBase {
     this.devices = {};
     for (const device of devices) {
       this.devices[device.label] = device;
+      debug("device", device.label, device, device.commands);
     }
-    debug("devices", this.devices);
+    //    debug("devices", this.devices);
+    //    console.log(
+    //      this.devices["Cabinet Controller"],
+    //      this.devices["Cabinet Controller"].commands
+    //    );
 
     const client = new WSClient();
 
@@ -241,12 +246,40 @@ class Hubitat extends HostBase {
         case "level":
           url += `setLevel/${value}`;
           break;
+        case "color":
+          url += `setColor/${value}`;
+          break;
+        case "hue":
+          url += `setHue/${value}`;
+          break;
+        case "effect":
+          url += `setEffect/${value}`;
+          break;
+        case "red":
+          url += `setRedLevel/${value}`;
+          break;
+        case "green":
+          url += `setGreenLevel/${value}`;
+          break;
+        case "blue":
+          url += `setBlueLevel/${value}`;
+          break;
+        case "saturation":
+          url += `setSaturation/${value}`;
+          break;
+        case "white":
+        case "whiteLevel":
+        case "warmWhiteLevel":
+          url += `setWarmWhiteLevel/${value}`;
+          break;
         case "switch":
           url += value;
           break;
       }
       url = `${url}?access_token=${this.token}`;
-      await superagent.get(url);
+      //      console.log("url", url);
+      const response = await superagent.get(url);
+      //      console.log("response", url, JSON.parse(response.text), "\n");
       //      await this.waitFor(attribute, value);
       //      this.queue = this.queue || [];
       //      this.queue.push(url);
