@@ -1,4 +1,4 @@
-FROM node:8
+FROM node:12
 ENV TZ=America/Los_Angeles
 RUN yarn global add forever
 RUN useradd --user-group --create-home --shell /bin/false app
