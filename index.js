@@ -73,8 +73,13 @@ class Hubitat extends HostBase {
     this.devices = {};
     for (const device of devices) {
       this.devices[device.label] = device;
+      debug("device", device.label, device, device.commands);
     }
-    debug("devices", this.devices);
+    //    debug("devices", this.devices);
+    //    console.log(
+    //      this.devices["Cabinet Controller"],
+    //      this.devices["Cabinet Controller"].commands
+    //    );
 
     const client = new WSClient();
 
