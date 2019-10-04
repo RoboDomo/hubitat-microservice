@@ -257,7 +257,7 @@ class Hubitat extends HostBase {
       } catch (e) {
         //
       }
-      console.log(`command ${thing}.${attribute} = ${value}`);
+      console.log(`command ${thing}.${attribute} = `, value);
       let url = `http://hubitat/apps/api/4/devices/${device.id}/`;
       switch (attribute) {
         case "level":
@@ -279,11 +279,19 @@ class Hubitat extends HostBase {
         case "color":
           url += `setColor/${value}`;
           console.log("color", value);
-          this.color = {
-            r: parseInt(value.substr(0, 2), 16),
-            g: parseInt(value.substr(2, 2), 16),
-            b: parseInt(value.substr(4, 2), 16)
-          };
+          if (value.r !== undefined) {
+            this.color = {
+              r: value.r,
+              g: value.g,
+              b: value.b
+            };
+          } else {
+            this.color = {
+              r: parseInt(value.substr(0, 2), 16),
+              g: parseInt(value.substr(2, 2), 16),
+              b: parseInt(value.substr(4, 2), 16)
+            };
+          }
           break;
         case "effect":
           url += `setEffect/${value}`;
