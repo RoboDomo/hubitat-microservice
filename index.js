@@ -26,6 +26,13 @@ class Hubitat extends HostBase {
 
     debug("host", host, "topic", topic, "url", DEVICES_URL);
     super(host, topic, true);
+    this.devices = [];
+    this.color = {
+      r: 255,
+      g: 0,
+      b: 255
+    };
+    this.level = 100;
 
     try {
       this.token = process.env.HUBITAT_TOKEN;
@@ -62,6 +69,7 @@ class Hubitat extends HostBase {
 
   async run() {
     const devices = await getDevices();
+    //    console.log("GOT ", devices);
     this.devices = {};
     for (const device of devices) {
       this.devices[device.label] = device;
@@ -228,25 +236,77 @@ class Hubitat extends HostBase {
   }
 
   async command(thing, attribute, value) {
+    let uri;
     try {
-      console.log(`command ${thing}.${attribute} = ${value}`);
       const device = this.devices[thing];
       if (!device) {
         console.log("Command: Unknown device ", thing);
         return;
       }
 
+      try {
+        const v = Math.round(value);
+        if (!Number.isNaN(v)) {
+          value = v;
+        }
+      } catch (e) {
+        //
+      }
+      console.log(`command ${thing}.${attribute} = ${value}`);
       let url = `http://hubitat/apps/api/4/devices/${device.id}/`;
       switch (attribute) {
         case "level":
+          this.level = value;
           url += `setLevel/${value}`;
+          break;
+        case "hue":
+          url += `setHue/${value}`;
+          break;
+        case "saturation":
+          url += `setSaturation/${value}`;
+          break;
+        case "white":
+        case "whiteLevel":
+        case "warm":
+        case "warmLevel":
+          url += `setWarmWhiteLevel/${value}`;
+          break;
+        case "color":
+          url += `setColor/${value}`;
+          console.log("color", value);
+          this.color = {
+            r: parseInt(value.substr(0, 2), 16),
+            g: parseInt(value.substr(2, 2), 16),
+            b: parseInt(value.substr(4, 2), 16)
+          };
+          break;
+        case "effect":
+          url += `setEffect/${value}`;
           break;
         case "switch":
           url += value;
           break;
+        case "red":
+          this.color.r = value;
+          url += `setRedLevel/${value}`;
+          break;
+        case "green":
+          this.color.g = value;
+          url += `setGreenLevel/${value}`;
+          break;
+        case "blue":
+          this.color.b = value;
+          url += `setBlueLevel/${value}`;
+          break;
       }
       url = `${url}?access_token=${this.token}`;
+      uri = url;
+      console.log(`command ${thing}.${attribute} = ${value}`, url);
       await superagent.get(url);
+      if (attribute === "switch" && value === "on") {
+        await this.command(thing, "color", this.color);
+        await this.command(thing, "level", this.level);
+      }
       //      await this.waitFor(attribute, value);
       //      this.queue = this.queue || [];
       //      this.queue.push(url);
@@ -257,7 +317,7 @@ class Hubitat extends HostBase {
       //        }, 2000);
       //      }
     } catch (e) {
-      console.log(e.message);
+      console.log("GET error", uri, e.message, e.stack);
     }
   }
 }
