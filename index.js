@@ -27,12 +27,6 @@ class Hubitat extends HostBase {
     debug("host", host, "topic", topic, "url", DEVICES_URL);
     super(host, topic, true);
     this.devices = [];
-    this.color = {
-      r: 255,
-      g: 0,
-      b: 255
-    };
-    this.level = 100;
 
     try {
       this.token = process.env.HUBITAT_TOKEN;
@@ -74,6 +68,16 @@ class Hubitat extends HostBase {
     for (const device of devices) {
       this.devices[device.label] = device;
       debug("device", device.label, device, device.commands);
+      try {
+        if (~device.capabilities.indexOf("SwitchLevel")) {
+          device.level = 100;
+        }
+        if (~device.capabilities.indexOf("ColorControl")) {
+          device.color = { r: 255, g: 0, b: 255 };
+        }
+      } catch (e) {
+        debug("Exception ", e.message, device);
+      }
     }
     //    debug("devices", this.devices);
     //    console.log(
@@ -193,13 +197,13 @@ class Hubitat extends HostBase {
             attribute === "presence"
           ) {
             newState[key] = isNaN(value) ? value : Number(value);
-            if (attribute === "presence") {
-              debug(
-                new Date().toLocaleTimeString(),
-                device.label,
-                device.attributes.presence
-              );
-            }
+            //            if (attribute === "presence") {
+            //              debug(
+            //                new Date().toLocaleTimeString(),
+            //                device.label,
+            //                device.attributes.presence
+            //              );
+            //            }
             if (!this.state || newState[key] !== this.state[key]) {
               debug(
                 new Date().toLocaleTimeString(),
@@ -248,6 +252,7 @@ class Hubitat extends HostBase {
         console.log("Command: Unknown device ", thing);
         return;
       }
+      console.log(`command RAW ${thing}.${attribute} = `, value, device);
 
       try {
         const v = Math.round(value);
@@ -257,11 +262,10 @@ class Hubitat extends HostBase {
       } catch (e) {
         //
       }
-      console.log(`command ${thing}.${attribute} = `, value);
       let url = `http://hubitat/apps/api/4/devices/${device.id}/`;
       switch (attribute) {
         case "level":
-          this.level = value;
+          device.level = value;
           url += `setLevel/${value}`;
           break;
         case "hue":
@@ -280,13 +284,13 @@ class Hubitat extends HostBase {
           url += `setColor/${value}`;
           console.log("color", value);
           if (value.r !== undefined) {
-            this.color = {
+            device.color = {
               r: value.r,
               g: value.g,
               b: value.b
             };
           } else {
-            this.color = {
+            device.color = {
               r: parseInt(value.substr(0, 2), 16),
               g: parseInt(value.substr(2, 2), 16),
               b: parseInt(value.substr(4, 2), 16)
@@ -300,15 +304,15 @@ class Hubitat extends HostBase {
           url += value;
           break;
         case "red":
-          this.color.r = value;
+          device.color.r = value;
           url += `setRedLevel/${value}`;
           break;
         case "green":
-          this.color.g = value;
+          device.color.g = value;
           url += `setGreenLevel/${value}`;
           break;
         case "blue":
-          this.color.b = value;
+          device.color.b = value;
           url += `setBlueLevel/${value}`;
           break;
       }
@@ -316,9 +320,13 @@ class Hubitat extends HostBase {
       uri = url;
       console.log(`command ${thing}.${attribute} = ${value}`, url);
       await superagent.get(url);
-      if (attribute === "switch" && value === "on") {
-        await this.command(thing, "color", this.color);
-        await this.command(thing, "level", this.level);
+      if (
+        ~device.capabilities.indexOf("ColorControl") &&
+        attribute === "switch" &&
+        value === "on"
+      ) {
+        await this.command(thing, "color", device.color);
+        await this.command(thing, "level", device.level);
       }
       //      await this.waitFor(attribute, value);
       //      this.queue = this.queue || [];
