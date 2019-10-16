@@ -252,7 +252,7 @@ class Hubitat extends HostBase {
         console.log("Command: Unknown device ", thing);
         return;
       }
-      console.log(`command RAW ${thing}.${attribute} = `, value, device);
+      //      console.log(`command RAW ${thing}.${attribute} = `, value, device);
 
       try {
         const v = Math.round(value);
