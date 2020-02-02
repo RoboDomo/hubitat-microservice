@@ -6,9 +6,7 @@ const debug = require("debug")("hubitat"),
 
 const POLL_TIME = 2000;
 
-const DEVICES_URL = `http://${
-  process.env.HUBITAT_HUB
-}/apps/api/4/devices/all?access_token=${process.env.HUBITAT_TOKEN}`;
+const DEVICES_URL = `http://${process.env.HUBITAT_HUB}/apps/api/4/devices/all?access_token=${process.env.HUBITAT_TOKEN}`;
 
 const getDevices = async () => {
   try {
@@ -62,12 +60,13 @@ class Hubitat extends HostBase {
   }
 
   async run() {
+    console.log("getting devices");
     const devices = await getDevices();
-    //    console.log("GOT ", devices);
+//    console.log("GOT ", devices);
     this.devices = {};
     for (const device of devices) {
       this.devices[device.label] = device;
-      debug("device", device.label, device, device.commands);
+      console.log("device '" + device.label + "'                   ", device.name); // , device, device.commands);
       try {
         if (~device.capabilities.indexOf("SwitchLevel")) {
           device.level = 100;
@@ -249,7 +248,7 @@ class Hubitat extends HostBase {
     try {
       const device = this.devices[thing];
       if (!device) {
-        console.log("Command: Unknown device ", thing);
+        console.log("Command: Unknown device '" + thing + "'", attribute, value);
         return;
       }
       //      console.log(`command RAW ${thing}.${attribute} = `, value, device);
