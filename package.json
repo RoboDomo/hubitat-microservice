@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "debug": "^4.1.1",
+    "express": "^4.17.1",
     "microservice-core": "https://github.com/RoboDomo/microservice-core",
     "mqtt": "^3.0.0",
     "superagent": "^5.1.0",
