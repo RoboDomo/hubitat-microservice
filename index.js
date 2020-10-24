@@ -2,7 +2,7 @@ process.env.DEBUG = "hubitat";
 
 const debug = require("debug")("hubitat"),
   console = require("console"),
-  // WSClient = require("websocket").client,
+  WSClient = require("websocket").client,
   superagent = require("superagent"),
   HostBase = require("microservice-core/HostBase");
 
@@ -104,6 +104,7 @@ class Hubitat extends HostBase {
       const newState = {},
         event = req.body.content;
 
+      console.log("post event", event);
       newState[`${event.displayName}/status/${event.name}`] = isNaN(event.value)
         ? event.value
         : Number(event.value);
@@ -114,10 +115,105 @@ class Hubitat extends HostBase {
 
     await superagent.get(POLL_URL);
 
+    const client = new WSClient();
+
+    client.on("connectionFailed", err => {
+      console.log("Connect Error:", err.toString());
+    });
+
+    client.on("error", e => {
+      console.log("ws client error", e);
+    });
+    client.on("connect", connection => {
+      debug("ws connected!");
+      connection.on("error", err => {
+        console.log("Connection Error:", err.toString());
+      });
+
+      connection.on("close", err => {
+        console.log("Connection Close:", err.toString());
+      });
+
+      connection.on("message", message => {
+        try {
+          const event = JSON.parse(message.utf8Data),
+            newState = {};
+
+          switch (event.source) {
+            case "DEVICE":
+              switch (event.name) {
+                case "temperature":
+                  debug(
+                    new Date().toLocaleTimeString(),
+                    "WS event temperature",
+                    event.displayName,
+                    event.value
+                  );
+                  break;
+                case "battery":
+                  debug(
+                    new Date().toLocaleTimeString(),
+                    "WS event battery",
+                    event.displayName,
+                    event.value
+                  );
+                  break;
+                default:
+                  debug(new Date().toLocaleTimeString(), "WS event", event);
+                  break;
+              }
+              break;
+            case "LOCATION":
+              debug(
+                new Date().toLocaleTimeString(),
+                "WS event location",
+                event.displayName,
+                event.name,
+                event.value
+              );
+              break;
+            default:
+              debug(new Date().toLocaleTimeString(), "WS event", event);
+              break;
+          }
+
+          newState[`${event.displayName}/status/${event.name}`] = isNaN(
+            event.value
+          )
+            ? event.value
+            : Number(event.value);
+
+          this.state = newState;
+
+          if (event.source === "DEVICE") {
+            const deviceName = event.displayName,
+              device = this.devices[deviceName],
+              isButton = ~device.type.toLowerCase().indexOf("button");
+
+            if (
+              isButton &&
+              event.name !== "temperature" &&
+              event.name !== "battery" &&
+              device.capabilities.indexOf("Release") === -1
+            ) {
+              setTimeout(() => {
+                newState[`${event.displayName}/status/${event.name}`] = 0;
+                this.state = newState;
+              }, 1000);
+            }
+          }
+        } catch (e) {
+          //
+          console.log(new Date().toLocateTimeString(), "exception", e.message);
+        }
+      });
+    });
+
+    client.connect("ws://hubitat/eventsocket");
     app.listen(port, () => {
       console.log(`hubitat-microservice listening on port ${port}`);
     });
-  } // /run
+  }
 
   async command(thing, attribute, value) {
     let uri;
