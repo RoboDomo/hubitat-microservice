@@ -104,7 +104,7 @@ class Hubitat extends HostBase {
       const newState = {},
         event = req.body.content;
 
-      console.log("post event", event);
+      // console.log("post event", event);
       newState[`${event.displayName}/status/${event.name}`] = isNaN(event.value)
         ? event.value
         : Number(event.value);
@@ -142,13 +142,15 @@ class Hubitat extends HostBase {
           switch (event.source) {
             case "DEVICE":
               switch (event.name) {
+                case "pollResponse":
+                  break;
                 case "temperature":
-                  debug(
-                    new Date().toLocaleTimeString(),
-                    "WS event temperature",
-                    event.displayName,
-                    event.value
-                  );
+                  // debug(
+                  //   new Date().toLocaleTimeString(),
+                  //   "WS event temperature",
+                  //   event.displayName,
+                  //   event.value
+                  // );
                   break;
                 case "battery":
                   debug(
@@ -159,7 +161,7 @@ class Hubitat extends HostBase {
                   );
                   break;
                 default:
-                  debug(new Date().toLocaleTimeString(), "WS event", event);
+                  // debug(new Date().toLocaleTimeString(), "WS event", event);
                   break;
               }
               break;
@@ -236,6 +238,16 @@ class Hubitat extends HostBase {
         case "level":
           device.level = value;
           url += `setLevel/${value}`;
+          break;
+        case "lock":
+        case "locked":
+          device.locked = true;
+          url += `lock`;
+          break;
+        case "unlock":
+        case "unlocked":
+          device.locked = false;
+          url += `unlock`;
           break;
         case "hue":
           url += `setHue/${value}`;
