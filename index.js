@@ -42,7 +42,7 @@ class Hubitat extends HostBase {
       DEVICES_URL,
       "POLL_URL",
       POLL_URL
-    );
+    )
     super(host, topic, true);
 
     this.devices = [];
@@ -51,8 +51,14 @@ class Hubitat extends HostBase {
       this.token = process.env.HUBITAT_TOKEN;
 
       this.client.on("connect", () => {
+
+        // notify clients we started
+        this.alert("Alert", "hubitat-microservice running");
+
         this.client.subscribe("hubitat/+/set/#");
+
         this.client.on("message", async (topic, message) => {
+          console.log("message", topic, message);
           message = message.toString();
           const parts = topic.split("/");
           if (parts[2] === "set") {
@@ -62,7 +68,8 @@ class Hubitat extends HostBase {
       });
 
       this.client.on("error", e => {
-        console.log("client error", e);
+        // probably are in some wacky state, abort so nodemon/forever will restart us.
+        this.abort("client error", e.stack);
       });
 
       // override publish() in HostBase
@@ -77,7 +84,7 @@ class Hubitat extends HostBase {
         this.client.publish(topic, JSON.stringify(value), { retain: true });
       };
     } catch (e) {
-      console.log("Error: ", e.message, e.stack);
+      this.warn("Error: ", e.message, e.stack);
     }
   }
 
@@ -218,6 +225,11 @@ class Hubitat extends HostBase {
   }
 
   async command(thing, attribute, value) {
+    console.log("thing", thing, "attribute", attribute, "value", value);
+    if (thing === "reset") {
+      this.abort("hubitat-microservice RESET");
+      return;
+    }
     let uri;
     try {
       const device = this.devices[thing];
