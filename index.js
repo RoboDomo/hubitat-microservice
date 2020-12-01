@@ -1,4 +1,5 @@
 process.env.DEBUG = "hubitat";
+process.title = process.env.TITLE || "hubitat-microservice";
 
 const debug = require("debug")("hubitat"),
   console = require("console"),
