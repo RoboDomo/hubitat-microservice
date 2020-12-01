@@ -11,11 +11,11 @@
   "dependencies": {
     "debug": "^4.3.1",
     "express": "^4.17.1",
-    "forever": "^3.0.2",
+    "forever": "^3.0.4",
     "microservice-core": "git+https://github.com/RoboDomo/microservice-core.git",
-    "mqtt": "^3.0.0",
+    "mqtt": "^4.2.6",
     "nodemon": "^2.0.6",
-    "superagent": "^5.3.1",
+    "superagent": "^6.1.0",
     "websocket": "^1.0.32"
   }
 }
