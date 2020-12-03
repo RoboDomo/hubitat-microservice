@@ -1,4 +1,5 @@
 process.env.DEBUG = "hubitat";
+process.title = process.env.TITLE || "hubitat-microservice";
 
 const debug = require("debug")("hubitat"),
   console = require("console"),
@@ -42,7 +43,7 @@ class Hubitat extends HostBase {
       DEVICES_URL,
       "POLL_URL",
       POLL_URL
-    )
+    );
     super(host, topic, true);
 
     this.devices = [];
@@ -51,15 +52,18 @@ class Hubitat extends HostBase {
       this.token = process.env.HUBITAT_TOKEN;
 
       this.client.on("connect", () => {
-
         // notify clients we started
         this.alert("Alert", "hubitat-microservice running");
 
         this.client.subscribe("hubitat/+/set/#");
 
         this.client.on("message", async (topic, message) => {
-          console.log("message", topic, message);
           message = message.toString();
+          if (message === "__RESTART__") {
+            this.exit(`${process.title} restarting`);
+            return;
+          }
+          console.log("message", topic, message);
           const parts = topic.split("/");
           if (parts[2] === "set") {
             await this.command(parts[1], parts[3], message);
@@ -67,7 +71,7 @@ class Hubitat extends HostBase {
         });
       });
 
-      this.client.on("error", e => {
+      this.client.on("error", (e) => {
         // probably are in some wacky state, abort so nodemon/forever will restart us.
         this.abort("client error", e.stack);
       });
@@ -124,24 +128,24 @@ class Hubitat extends HostBase {
 
     const client = new WSClient();
 
-    client.on("connectionFailed", err => {
+    client.on("connectionFailed", (err) => {
       console.log("Connect Error:", err.toString());
     });
 
-    client.on("error", e => {
+    client.on("error", (e) => {
       console.log("ws client error", e);
     });
-    client.on("connect", connection => {
+    client.on("connect", (connection) => {
       debug("ws connected!");
-      connection.on("error", err => {
+      connection.on("error", (err) => {
         console.log("Connection Error:", err.toString());
       });
 
-      connection.on("close", err => {
+      connection.on("close", (err) => {
         console.log("Connection Close:", err.toString());
       });
 
-      connection.on("message", message => {
+      connection.on("message", (message) => {
         try {
           const event = JSON.parse(message.utf8Data),
             newState = {};
@@ -283,13 +287,13 @@ class Hubitat extends HostBase {
             device.color = {
               r: value.r,
               g: value.g,
-              b: value.b
+              b: value.b,
             };
           } else {
             device.color = {
               r: parseInt(value.substr(0, 2), 16),
               g: parseInt(value.substr(2, 2), 16),
-              b: parseInt(value.substr(4, 2), 16)
+              b: parseInt(value.substr(4, 2), 16),
             };
           }
           break;
