@@ -23,7 +23,7 @@ const getDevices = async () => {
     const json = await superagent.get(DEVICES_URL);
     return JSON.parse(json.text);
   } catch (e) {
-    console.log("getDevices exception", e.message, e.stack);
+    console.log("getDevices exception", e);
   }
 };
 
@@ -98,7 +98,7 @@ class Hubitat extends HostBase {
 
     for (const device of devices) {
       this.devices[device.label] = device;
-      debug(`device ${device.label} ${device.name}`);
+      debug(`device label(${device.label}) name(${device.name}) type(${device.type})`);
       try {
         if (~device.capabilities.indexOf("SwitchLevel")) {
           device.level = 100;
@@ -107,7 +107,7 @@ class Hubitat extends HostBase {
           device.color = { r: 255, g: 0, b: 255 };
         }
       } catch (e) {
-        debug("Exception ", e.message, device);
+        debug("Exception ", e);
       }
     }
 
@@ -201,7 +201,7 @@ class Hubitat extends HostBase {
           if (event.source === "DEVICE") {
             const deviceName = event.displayName,
               device = this.devices[deviceName],
-              isButton = ~device.type.toLowerCase().indexOf("button");
+              isButton = ~(device.type || "").toLowerCase().indexOf("button");
 
             if (
               isButton &&
@@ -217,7 +217,9 @@ class Hubitat extends HostBase {
           }
         } catch (e) {
           //
-          console.log(new Date().toLocateTimeString(), "exception", e.message);
+          console.log(new Date().toLocaleTimeString(), "exception", e);
+          const event = JSON.parse(message.utf8Data);
+          console.log(event, this.devices[event.displayName]);
         }
       });
     });
