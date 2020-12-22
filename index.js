@@ -60,6 +60,9 @@ class Hubitat extends HostBase {
         this.client.on("message", async (topic, message) => {
           message = message.toString();
           if (message === "__RESTART__") {
+            console.log("GOT RESTART", topic, message);
+            await this.client.publish(topic, null, { retain: false });
+            await this.client.publish(topic, null, { retain: true });
             this.exit(`${process.title} restarting`);
             return;
           }
@@ -98,7 +101,9 @@ class Hubitat extends HostBase {
 
     for (const device of devices) {
       this.devices[device.label] = device;
-      debug(`device label(${device.label}) name(${device.name}) type(${device.type})`);
+      debug(
+        `device label(${device.label}) name(${device.name}) type(${device.type})`
+      );
       try {
         if (~device.capabilities.indexOf("SwitchLevel")) {
           device.level = 100;
